@@ -133,17 +133,17 @@ static void start()
 static void command (int cmd)
 {
   switch (cmd) {
-  case 's':
-    speed += 0.3;
+  case 'e':
+    speed = 0.5;
     break;
   case 'd':
-    speed -= 0.3;
+    speed = -0.5;
     break;
-  case 'a':
-    steer -= 0.1;
+  case 's':
+    steer = 0.5;
     break;
   case 'f':
-    steer += 0.1;
+    steer = -0.5;
     break;
   case ' ':
     speed = 0;

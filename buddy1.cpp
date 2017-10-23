@@ -160,12 +160,30 @@ static void command (int cmd)
   }
 }
 
+static dReal getHorizontalAngle(dGeomID a, dGeomID b){
+  const dReal *a_pos = dGeomGetPostion(a);
+  const dReal *b_pos = dGeomGetPostion(b);
+  dVector3 ab = b_pos - a_pos;
+  const dReal *a_rot = dGeomGetRotation(a);
+}
+
+static dReal getHorizontalDistance(dGeomID a, dGeomID b){
+  const dReal *a_pos = dGeomGetPostion(a);
+  const dReal *b_pos = dGeomGetPostion(b);
+  dReal dist = sqrt(pow(a_pos[0]-b_pos[0],2) + pow(a_pos[1]-b_pos[1],2));
+  return dist;
+}
 
 // simulation loop
 
 static void simLoop (int pause)
 {
   int i;
+  
+  dReal dist = getHorizontalDistance(box, master);
+  dReal theta = getHorizontalAngle(box, master);
+  calculateMotorSpeed(dist, theta);
+  
   if (!pause) {
     // motor
     dJointSetHinge2Param (joint[0],dParamVel2,-speed+steer);

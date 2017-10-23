@@ -55,6 +55,7 @@ this also shows you how to use geom groups.
 #define STARTZ 0.5	// starting height of chassis
 #define CMASS 1		// chassis mass
 #define WMASS 0.2	// wheel mass
+#define HEIGHT_MASTER 1.8 // height of master
 
 
 // dynamics and collision objects (chassis, 3 wheels, environment)
@@ -69,7 +70,7 @@ static dSpaceID car_space;
 static dGeomID box[1];
 static dGeomID sphere[4]; // 4 tires
 static dGeomID ground_box;
-
+static dGeomID master; // master of buddy who is the target person
 
 // things that the user controls
 
@@ -269,16 +270,6 @@ int main (int argc, char **argv)
   dBodySetPosition (body[3],-0.5*LENGTH, WIDTH*0.5,STARTZ-HEIGHT*0.5);
   dBodySetPosition (body[4],-0.5*LENGTH,-WIDTH*0.5,STARTZ-HEIGHT*0.5);
 
-  // front wheel hinge
-  /*
-  joint[0] = dJointCreateHinge2 (world,0);
-  dJointAttach (joint[0],body[0],body[1]);
-  const dReal *a = dBodyGetPosition (body[1]);
-  dJointSetHinge2Anchor (joint[0],a[0],a[1],a[2]);
-  dJointSetHinge2Axis1 (joint[0],0,0,1);
-  dJointSetHinge2Axis2 (joint[0],0,1,0);
-  */
-
   // front and back wheel hinges
   for (i=0; i<4; i++) {
     joint[i] = dJointCreateHinge2 (world,0);
@@ -305,6 +296,7 @@ int main (int argc, char **argv)
     //   dJointSetHinge2Param (joint[i],dParamVel,0);
     //   dJointSetHinge2Param (joint[i],dParamFMax,dInfinity);
   }
+  
 
   // create car space and add it to the top level space
   car_space = dSimpleSpaceCreate (space);
@@ -314,6 +306,10 @@ int main (int argc, char **argv)
   dSpaceAdd (car_space,sphere[1]);
   dSpaceAdd (car_space,sphere[2]);
   dSpaceAdd (car_space,sphere[3]);
+  
+  // create master who is the target person
+  master = dCreateBox (space,0.2,0.2,HEIGHT_MASTER);
+  dGeomSetPosition (master,3,3,HEIGHT_MASTER/2.0);
 
   // environment
   ground_box = dCreateBox (space,2,1.5,1);
@@ -325,11 +321,13 @@ int main (int argc, char **argv)
   // run simulation
   dsSimulationLoop (argc,argv,352*2,288*2,&fn);
 
+  // terminate
   dGeomDestroy (box[0]);
   dGeomDestroy (sphere[0]);
   dGeomDestroy (sphere[1]);
   dGeomDestroy (sphere[2]);
   dGeomDestroy (sphere[3]);
+  dGeomDestroy (master);
   dJointGroupDestroy (contactgroup);
   dSpaceDestroy (space);
   dWorldDestroy (world);

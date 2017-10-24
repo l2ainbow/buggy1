@@ -161,17 +161,22 @@ static void command (int cmd)
 }
 
 static dReal getHorizontalAngle(dGeomID a, dGeomID b){
-  const dReal *a_pos = dGeomGetPostion(a);
-  const dReal *b_pos = dGeomGetPostion(b);
-  dVector3 ab = b_pos - a_pos;
+  const dReal *a_pos = dGeomGetPosition(a);
+  const dReal *b_pos = dGeomGetPosition(b);
+  //dVector3 ab = b_pos - a_pos;
   const dReal *a_rot = dGeomGetRotation(a);
+  return 0.0;
 }
 
 static dReal getHorizontalDistance(dGeomID a, dGeomID b){
-  const dReal *a_pos = dGeomGetPostion(a);
-  const dReal *b_pos = dGeomGetPostion(b);
+  const dReal *a_pos = dGeomGetPosition(a);
+  const dReal *b_pos = dGeomGetPosition(b);
   dReal dist = sqrt(pow(a_pos[0]-b_pos[0],2) + pow(a_pos[1]-b_pos[1],2));
   return dist;
+}
+
+void calculateMotorSpeed(dReal dist, dReal theta){
+  // did not program
 }
 
 // simulation loop
@@ -179,11 +184,13 @@ static dReal getHorizontalDistance(dGeomID a, dGeomID b){
 static void simLoop (int pause)
 {
   int i;
-  
-  dReal dist = getHorizontalDistance(box, master);
-  dReal theta = getHorizontalAngle(box, master);
+
+  dReal dist = getHorizontalDistance(box[0], master);
+  dReal theta = getHorizontalAngle(box[0], master);
   calculateMotorSpeed(dist, theta);
-  
+
+  printf("dist=%f, theta=%f\n", dist, theta);
+
   if (!pause) {
     // motor
     dJointSetHinge2Param (joint[0],dParamVel2,-speed+steer);
@@ -224,11 +231,15 @@ static void simLoop (int pause)
   dsDrawBox (dBodyGetPosition(body[0]),dBodyGetRotation(body[0]),sides);
   dsSetColor (1,1,1);
   for (i=1; i<=4; i++) dsDrawCylinder (dBodyGetPosition(body[i]),
-				       dBodyGetRotation(body[i]),0.02f,RADIUS);
+    dBodyGetRotation(body[i]),0.02f,RADIUS);
 
   dVector3 ss;
-  dGeomBoxGetLengths (ground_box,ss);
-  dsDrawBox (dGeomGetPosition(ground_box),dGeomGetRotation(ground_box),ss);
+  dGeomBoxGetLengths(master, ss);
+  dsDrawBox(dGeomGetPosition(master), dGeomGetRotation(master), ss);
+
+  //dVector3 ss;
+  //dGeomBoxGetLengths (ground_box,ss);
+  //dsDrawBox (dGeomGetPosition(ground_box),dGeomGetRotation(ground_box),ss);
 
   /*
   printf ("%.10f %.10f %.10f %.10f\n",
@@ -314,7 +325,7 @@ int main (int argc, char **argv)
     //   dJointSetHinge2Param (joint[i],dParamVel,0);
     //   dJointSetHinge2Param (joint[i],dParamFMax,dInfinity);
   }
-  
+
 
   // create car space and add it to the top level space
   car_space = dSimpleSpaceCreate (space);
@@ -324,17 +335,19 @@ int main (int argc, char **argv)
   dSpaceAdd (car_space,sphere[1]);
   dSpaceAdd (car_space,sphere[2]);
   dSpaceAdd (car_space,sphere[3]);
-  
+
   // create master who is the target person
   master = dCreateBox (space,0.2,0.2,HEIGHT_MASTER);
   dGeomSetPosition (master,3,3,HEIGHT_MASTER/2.0);
 
   // environment
+  /*
   ground_box = dCreateBox (space,2,1.5,1);
   dMatrix3 R;
   dRFromAxisAndAngle (R,0,1,0,-0.15);
   dGeomSetPosition (ground_box,2,0,-0.34);
   dGeomSetRotation (ground_box,R);
+  */
 
   // run simulation
   dsSimulationLoop (argc,argv,352*2,288*2,&fn);

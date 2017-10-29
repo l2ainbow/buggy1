@@ -56,7 +56,7 @@ this also shows you how to use geom groups.
 #define CMASS 1		// chassis mass
 #define WMASS 0.2	// wheel mass
 #define HEIGHT_MASTER 1.8 // height of master
-
+#define MAX_MOTOR_SPEED M_PI / 2 // max rotation speed of motor [rad/s]
 
 // dynamics and collision objects (chassis, 3 wheels, environment)
 
@@ -160,13 +160,86 @@ static void command (int cmd)
   }
 }
 
-static dReal getHorizontalAngle(dGeomID a, dGeomID b){
+// 原点からの距離取得
+
+static dReal getHorizontalDistanceFromOrigin(dGeomID a){
+    const dReal *a_pos = dGeomGetPosition(a);
+    dReal dist = sqrt(pow(a_pos[0], 2) + pow(a_pos[1], 2));
+    return dist;
+}
+
+// 内積の計算
+
+static dReal getInnerProduct(dGeomID a, dGeomID b){
   const dReal *a_pos = dGeomGetPosition(a);
   const dReal *b_pos = dGeomGetPosition(b);
-  //dVector3 ab = b_pos - a_pos;
-  const dReal *a_rot = dGeomGetRotation(a);
-  return 0.0;
+  return a_pos[0]*b_pos[0] + a_pos[1]*b_pos[1];
 }
+
+// 内積の計算　
+
+static dReal getInnerProduct(const dReal *a, const dReal *b){
+    return a[0] * b[0] + a[1] * b[1];
+}
+
+static void getProduct(const dReal *a_vec3, const dReal *b_mat3, dReal *ab_vec3){
+    ab_vec3[0] = a_vec3[0] * b_mat3[0] + a_vec3[1] * b_mat3[3] + a_vec3[2] * b_mat3[6];
+    ab_vec3[1] = a_vec3[0] * b_mat3[1] + a_vec3[1] * b_mat3[4] + a_vec3[2] * b_mat3[7];
+    ab_vec3[2] = a_vec3[0] * b_mat3[2] + a_vec3[1] * b_mat3[5] + a_vec3[2] * b_mat3[8];
+}
+
+// 行列式の計算
+
+static dReal getDetermineMatrix(const dReal *matrix){
+    return matrix[0] * matrix[4] * matrix[8] + matrix[3] * matrix[7] *matrix[2] + matrix[6] * matrix[1] * matrix[5]
+            - matrix[0] * matrix[7] * matrix[5] - matrix[6] * matrix[4] * matrix[2] - matrix[3] * matrix[1] * matrix[8] ;
+}
+
+//逆行列の計算
+
+static bool getInvMatrix(const dReal *matrix, dReal *inverse)
+{
+    dReal det = getDetermineMatrix(matrix);
+    if (fabs(det) == 0){
+        return false;
+    }
+
+    dReal inv_det = 1.0 / det;
+
+    inverse[0] = inv_det * (matrix[4] * matrix[8] - matrix[5] * matrix[7]);
+    inverse[1] = inv_det * (matrix[2] * matrix[7] - matrix[1] * matrix[8]);
+    inverse[2] = inv_det * (matrix[1] * matrix[5] - matrix[2] * matrix[4]);
+
+    inverse[3] = inv_det * (matrix[5] * matrix[6] - matrix[3] * matrix[8]);
+    inverse[4] = inv_det * (matrix[0] * matrix[8] - matrix[2] * matrix[6]);
+    inverse[5] = inv_det * (matrix[2] * matrix[3] - matrix[0] * matrix[5]);
+
+    inverse[6] = inv_det * (matrix[3] * matrix[7] - matrix[4] * matrix[6]);
+    inverse[7] = inv_det * (matrix[1] * matrix[6] - matrix[0] * matrix[7]);
+    inverse[8] = inv_det * (matrix[0] * matrix[4] - matrix[1] * matrix[3]);
+}
+
+// 水平角度の計算
+
+static dReal getHorizontalAngle(dGeomID a, dGeomID b){
+    const dReal *a_rot = dGeomGetRotation(a);
+    dReal invRot[9];
+    if (getInvMatrix(a_rot, invRot) == false){
+        return -999;
+    }
+    const dReal *a_pos = dGeomGetPosition(a);
+    const dReal *b_pos = dGeomGetPosition(b);
+    const dReal ab[] = { b_pos[0] - a_pos[0], b_pos[1] - a_pos[1], b_pos[2] - a_pos[2] };
+
+    dReal c[3];
+    getProduct(ab, invRot, c);
+    const dReal x_pos[] = { 1, 0, 0 };
+
+    const dReal cos_theta = getInnerProduct(ab, x_pos);
+    return acos(cos_theta);
+}
+
+// 水平距離の計算
 
 static dReal getHorizontalDistance(dGeomID a, dGeomID b){
   const dReal *a_pos = dGeomGetPosition(a);
@@ -175,19 +248,35 @@ static dReal getHorizontalDistance(dGeomID a, dGeomID b){
   return dist;
 }
 
-void calculateMotorSpeed(dReal dist, dReal theta){
-  // did not program
+// モータの回転速度の計算
+
+static void calculateMotorSpeed(dReal dist, dReal theta, dReal *motorSpeed){
+  dReal rMotorSpeed = 0.0;
+  dReal lMotorSpeed = 0.0;
+
+  if (theta < - M_PI / 2){
+    rMotorSpeed = MAX_MOTOR_SPEED;
+    lMotorSpeed = - MAX_MOTOR_SPEED;
+  }
+  else {
+    rMotorSpeed = 0.0;
+    lMotorSpeed = 0.0;
+  }
+
+  motorSpeed[0] = rMotorSpeed;
+  motorSpeed[1] = lMotorSpeed;
 }
 
-// simulation loop
+// シミュレーションのループ実行
 
 static void simLoop (int pause)
 {
   int i;
+  dReal motorSpeed[2] = {0.0, 0.0};
 
   dReal dist = getHorizontalDistance(box[0], master);
-  dReal theta = getHorizontalAngle(box[0], master);
-  calculateMotorSpeed(dist, theta);
+  dReal theta = getHorizontalAngle(box[0], master) * 180 / M_PI;
+  calculateMotorSpeed(dist, theta, motorSpeed);
 
   printf("dist=%f, theta=%f\n", dist, theta);
 
@@ -250,6 +339,7 @@ static void simLoop (int pause)
   */
 }
 
+// メイン関数
 
 int main (int argc, char **argv)
 {

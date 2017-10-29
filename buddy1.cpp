@@ -48,15 +48,15 @@ this also shows you how to use geom groups.
 
 // some constants
 
-#define LENGTH 0.7	// chassis length
-#define WIDTH 0.5	// chassis width
-#define HEIGHT 0.2	// chassis height
-#define RADIUS 0.18	// wheel radius
-#define STARTZ 0.5	// starting height of chassis
-#define CMASS 1		// chassis mass
-#define WMASS 0.2	// wheel mass
-#define HEIGHT_MASTER 1.8 // height of master
-#define MAX_MOTOR_SPEED M_PI / 2 // max rotation speed of motor [rad/s]
+#define LENGTH 0.7	// バディの長さ [m]
+#define WIDTH 0.5	// バディの幅 [m]
+#define HEIGHT 0.2	// バディの高さ [m]
+#define RADIUS 0.18	// タイヤの直径 [m]
+#define STARTZ 0.5	// バディのスタート高さ [m]
+#define CMASS 1		// バディの重さ [kg]
+#define WMASS 0.2	// タイヤの重さ [kg]
+#define HEIGHT_MASTER 1.8 // マスターの高さ [m]
+#define MAX_MOTOR_SPEED M_PI / 2 // モータの最大回転速度 [rad/s]
 
 // dynamics and collision objects (chassis, 3 wheels, environment)
 
@@ -74,12 +74,11 @@ static dGeomID master; // master of buddy who is the target person
 
 // things that the user controls
 
-static dReal speed=0,steer=0;	// user commands
+static dReal speed=0; // バディの直進量
+static dReal steer=0; // バディの旋回量
 
-
-
-// this is called by dSpaceCollide when two objects in space are
-// potentially colliding.
+// シミュレーション開始前に呼ばれる関数
+// 衝突関係の計算
 
 static void nearCallback (void *data, dGeomID o1, dGeomID o2)
 {
@@ -120,31 +119,31 @@ static void start()
   static float xyz[3] = {0.8317f*4,-0.9817f*4,0.8000f*2};
   static float hpr[3] = {121.0000f,-27.5000f,0.0000f};
   dsSetViewpoint (xyz,hpr);
-  printf ("Press:\t'a' to increase speed.\n"
-	  "\t'z' to decrease speed.\n"
-	  "\t',' to steer left.\n"
-	  "\t'.' to steer right.\n"
+  printf ("Press:\t'e' to increase speed.\n"
+	  "\t'd' to decrease speed.\n"
+	  "\t's' to steer left.\n"
+	  "\t'f' to steer right.\n"
 	  "\t' ' to reset speed and steering.\n"
 	  "\t'1' to save the current state to 'state.dif'.\n");
 }
 
 
-// called when a key pressed
+// キーボードを押したときに呼び出される関数
 
 static void command (int cmd)
 {
   switch (cmd) {
   case 'e':
-    speed = 0.5;
+    speed += 0.5;
     break;
   case 'd':
-    speed = -0.5;
+    speed += -0.5;
     break;
   case 's':
-    steer = 0.5;
+    steer += 0.5;
     break;
   case 'f':
-    steer = -0.5;
+    steer += -0.5;
     break;
   case ' ':
     speed = 0;
@@ -181,6 +180,8 @@ static dReal getInnerProduct(dGeomID a, dGeomID b){
 static dReal getInnerProduct(const dReal *a, const dReal *b){
     return a[0] * b[0] + a[1] * b[1];
 }
+
+// 行列の積の計算
 
 static void getProduct(const dReal *a_vec3, const dReal *b_mat3, dReal *ab_vec3){
     ab_vec3[0] = a_vec3[0] * b_mat3[0] + a_vec3[1] * b_mat3[3] + a_vec3[2] * b_mat3[6];
@@ -248,24 +249,34 @@ static dReal getHorizontalDistance(dGeomID a, dGeomID b){
   return dist;
 }
 
+/** 前島くんがここを実装 **/
+
 // モータの回転速度の計算
+//
+// dist: マスターとの距離[m]
+// theta: バディから見たマスターの角度(マイナス:左方向、プラス:右方向)[rad]
+// motorSpeed: モータの回転速度(0:右モータ、1:左モータ)[rad/s]
 
 static void calculateMotorSpeed(dReal dist, dReal theta, dReal *motorSpeed){
-  dReal rMotorSpeed = 0.0;
-  dReal lMotorSpeed = 0.0;
+  dReal rMotorSpeed = 0.0; // 右モータの回転速度[rad/s]
+  dReal lMotorSpeed = 0.0; // 左モータの回転速度[rad/s]
 
-  if (theta < - M_PI / 2){
+  // この後に以下のプログラムを書く
+  // (1)距離が近い時は停止する
+  // (2)マスターが後方にいる場合、旋回する
+  // (3)マスターが前方にいる場合、直進する
+  // (4)それ以外の場合、カーブ走行する
+  if (theta < - M_PI / 2 || theta > M_PI / 2){
+    // (2)マスターが後方にいる場合、旋回する
     rMotorSpeed = MAX_MOTOR_SPEED;
     lMotorSpeed = - MAX_MOTOR_SPEED;
-  }
-  else {
-    rMotorSpeed = 0.0;
-    lMotorSpeed = 0.0;
   }
 
   motorSpeed[0] = rMotorSpeed;
   motorSpeed[1] = lMotorSpeed;
 }
+
+/** ここまで **/
 
 // シミュレーションのループ実行
 
@@ -278,7 +289,7 @@ static void simLoop (int pause)
   dReal theta = getHorizontalAngle(box[0], master) * 180 / M_PI;
   calculateMotorSpeed(dist, theta, motorSpeed);
 
-  printf("dist=%f, theta=%f\n", dist, theta);
+  printf("dist=%f, theta=%f, rMotor=%f, lMotor=%f\n", dist, theta, motorSpeed[0], motorSpeed[1]);
 
   if (!pause) {
     // motor
@@ -291,14 +302,6 @@ static void simLoop (int pause)
     dJointSetHinge2Param (joint[3],dParamVel2,-speed-steer);
     dJointSetHinge2Param (joint[3],dParamFMax2,0.1);
 
-    // steering
-    /*
-    dReal v = steer - dJointGetHinge2Angle1 (joint[0]);
-    if (v > 0.1) v = 0.1;
-    if (v < -0.1) v = -0.1;
-    v *= 10.0;
-    */
-    //dJointSetHinge2Param (joint[0],dParamVel,v);
     for (int i = 0; i< 4; i++){
         dJointSetHinge2Param (joint[i],dParamVel,0.0);
         dJointSetHinge2Param (joint[i],dParamFMax,0.2);
@@ -326,17 +329,6 @@ static void simLoop (int pause)
   dGeomBoxGetLengths(master, ss);
   dsDrawBox(dGeomGetPosition(master), dGeomGetRotation(master), ss);
 
-  //dVector3 ss;
-  //dGeomBoxGetLengths (ground_box,ss);
-  //dsDrawBox (dGeomGetPosition(ground_box),dGeomGetRotation(ground_box),ss);
-
-  /*
-  printf ("%.10f %.10f %.10f %.10f\n",
-	  dJointGetHingeAngle (joint[1]),
-	  dJointGetHingeAngle (joint[2]),
-	  dJointGetHingeAngleRate (joint[1]),
-	  dJointGetHingeAngleRate (joint[2]));
-  */
 }
 
 // メイン関数
@@ -431,13 +423,6 @@ int main (int argc, char **argv)
   dGeomSetPosition (master,3,3,HEIGHT_MASTER/2.0);
 
   // environment
-  /*
-  ground_box = dCreateBox (space,2,1.5,1);
-  dMatrix3 R;
-  dRFromAxisAndAngle (R,0,1,0,-0.15);
-  dGeomSetPosition (ground_box,2,0,-0.34);
-  dGeomSetRotation (ground_box,R);
-  */
 
   // run simulation
   dsSimulationLoop (argc,argv,352*2,288*2,&fn);

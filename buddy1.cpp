@@ -48,15 +48,16 @@ this also shows you how to use geom groups.
 
 // some constants
 
-#define LENGTH 0.7	// バディの長さ [m]
-#define WIDTH 0.5	// バディの幅 [m]
-#define HEIGHT 0.2	// バディの高さ [m]
-#define RADIUS 0.18	// タイヤの直径 [m]
-#define STARTZ 0.5	// バディのスタート高さ [m]
-#define CMASS 1		// バディの重さ [kg]
-#define WMASS 0.2	// タイヤの重さ [kg]
+#define STEP_SIZE 0.01 // 1ステップの時間[s]
+#define LENGTH 0.7	   // バディの長さ [m]
+#define WIDTH 0.5	   // バディの幅 [m]
+#define HEIGHT 0.2	   // バディの高さ [m]
+#define RADIUS 0.18	   // タイヤの直径 [m]
+#define STARTZ 0.5	   // バディのスタート高さ [m]
+#define CMASS 1		   // バディの重さ [kg]
+#define WMASS 0.2	   // タイヤの重さ [kg]
 #define HEIGHT_MASTER 1.8 // マスターの高さ [m]
-#define MAX_MOTOR_SPEED M_PI / 2 // モータの最大回転速度 [rad/s]
+#define MAX_MOTOR_SPEED (M_PI / 2) // モータの最大回転速度 [rad/s]
 
 // dynamics and collision objects (chassis, 3 wheels, environment)
 
@@ -76,6 +77,7 @@ static dGeomID master; // master of buddy who is the target person
 
 static dReal speed=0; // バディの直進量
 static dReal steer=0; // バディの旋回量
+static int step = 0; // シミュレーション開始からのステップ数
 
 // シミュレーション開始前に呼ばれる関数
 // 衝突関係の計算
@@ -134,16 +136,16 @@ static void command (int cmd)
 {
   switch (cmd) {
   case 'e':
-    speed += 0.5;
+    speed += 1.0;
     break;
   case 'd':
-    speed += -0.5;
+    speed += -1.0;
     break;
   case 's':
-    steer += 0.5;
+    steer += 1.0;
     break;
   case 'f':
-    steer += -0.5;
+    steer += -1.0;
     break;
   case ' ':
     speed = 0;
@@ -159,85 +161,34 @@ static void command (int cmd)
   }
 }
 
-// 原点からの距離取得
-
-static dReal getHorizontalDistanceFromOrigin(dGeomID a){
-    const dReal *a_pos = dGeomGetPosition(a);
-    dReal dist = sqrt(pow(a_pos[0], 2) + pow(a_pos[1], 2));
-    return dist;
-}
-
-// 内積の計算
-
-static dReal getInnerProduct(dGeomID a, dGeomID b){
-  const dReal *a_pos = dGeomGetPosition(a);
-  const dReal *b_pos = dGeomGetPosition(b);
-  return a_pos[0]*b_pos[0] + a_pos[1]*b_pos[1];
-}
-
 // 内積の計算　
 
 static dReal getInnerProduct(const dReal *a, const dReal *b){
     return a[0] * b[0] + a[1] * b[1];
 }
 
-// 行列の積の計算
-
-static void getProduct(const dReal *a_vec3, const dReal *b_mat3, dReal *ab_vec3){
-    ab_vec3[0] = a_vec3[0] * b_mat3[0] + a_vec3[1] * b_mat3[3] + a_vec3[2] * b_mat3[6];
-    ab_vec3[1] = a_vec3[0] * b_mat3[1] + a_vec3[1] * b_mat3[4] + a_vec3[2] * b_mat3[7];
-    ab_vec3[2] = a_vec3[0] * b_mat3[2] + a_vec3[1] * b_mat3[5] + a_vec3[2] * b_mat3[8];
+static dReal getLength(dReal x, dReal y){
+    return sqrt(x*x+y*y);
 }
 
-// 行列式の計算
-
-static dReal getDetermineMatrix(const dReal *matrix){
-    return matrix[0] * matrix[4] * matrix[8] + matrix[3] * matrix[7] *matrix[2] + matrix[6] * matrix[1] * matrix[5]
-            - matrix[0] * matrix[7] * matrix[5] - matrix[6] * matrix[4] * matrix[2] - matrix[3] * matrix[1] * matrix[8] ;
-}
-
-//逆行列の計算
-
-static bool getInvMatrix(const dReal *matrix, dReal *inverse)
-{
-    dReal det = getDetermineMatrix(matrix);
-    if (fabs(det) == 0){
-        return false;
-    }
-
-    dReal inv_det = 1.0 / det;
-
-    inverse[0] = inv_det * (matrix[4] * matrix[8] - matrix[5] * matrix[7]);
-    inverse[1] = inv_det * (matrix[2] * matrix[7] - matrix[1] * matrix[8]);
-    inverse[2] = inv_det * (matrix[1] * matrix[5] - matrix[2] * matrix[4]);
-
-    inverse[3] = inv_det * (matrix[5] * matrix[6] - matrix[3] * matrix[8]);
-    inverse[4] = inv_det * (matrix[0] * matrix[8] - matrix[2] * matrix[6]);
-    inverse[5] = inv_det * (matrix[2] * matrix[3] - matrix[0] * matrix[5]);
-
-    inverse[6] = inv_det * (matrix[3] * matrix[7] - matrix[4] * matrix[6]);
-    inverse[7] = inv_det * (matrix[1] * matrix[6] - matrix[0] * matrix[7]);
-    inverse[8] = inv_det * (matrix[0] * matrix[4] - matrix[1] * matrix[3]);
+static dReal getHorizontalAngleFromR(const dReal *R){
+    return -atan2(R[4],R[0]);
 }
 
 // 水平角度の計算
 
 static dReal getHorizontalAngle(dGeomID a, dGeomID b){
     const dReal *a_rot = dGeomGetRotation(a);
-    dReal invRot[9];
-    if (getInvMatrix(a_rot, invRot) == false){
-        return -999;
-    }
+    const dReal a_angle = getHorizontalAngleFromR(a_rot);
+
     const dReal *a_pos = dGeomGetPosition(a);
     const dReal *b_pos = dGeomGetPosition(b);
     const dReal ab[] = { b_pos[0] - a_pos[0], b_pos[1] - a_pos[1], b_pos[2] - a_pos[2] };
-
-    dReal c[3];
-    getProduct(ab, invRot, c);
     const dReal x_pos[] = { 1, 0, 0 };
 
-    const dReal cos_theta = getInnerProduct(ab, x_pos);
-    return acos(cos_theta);
+    const dReal cos_theta = getInnerProduct(ab, x_pos) / getLength(ab[0], ab[1]);
+    const dReal theta = - acos(cos_theta);
+    return theta - a_angle;
 }
 
 // 水平距離の計算
@@ -286,12 +237,14 @@ static void simLoop (int pause)
   dReal motorSpeed[2] = {0.0, 0.0};
 
   dReal dist = getHorizontalDistance(box[0], master);
-  dReal theta = getHorizontalAngle(box[0], master) * 180 / M_PI;
+  dReal theta = getHorizontalAngle(box[0], master);
   calculateMotorSpeed(dist, theta, motorSpeed);
 
-  printf("dist=%f, theta=%f, rMotor=%f, lMotor=%f\n", dist, theta, motorSpeed[0], motorSpeed[1]);
-
   if (!pause) {
+    step++;
+
+    if (step % 100 == 0)
+        printf("sec=%6d, dist=%0.2f, theta=%0.2f, rMotor=%0.1f, lMotor=%0.1f\n", (int)(step*STEP_SIZE), dist, theta, motorSpeed[0], motorSpeed[1]);
     // motor
     dJointSetHinge2Param (joint[0],dParamVel2,-speed+steer);
     dJointSetHinge2Param (joint[0],dParamFMax2,0.1);
@@ -311,7 +264,7 @@ static void simLoop (int pause)
     }
 
     dSpaceCollide (space,0,&nearCallback);
-    dWorldStep (world,0.05);
+    dWorldStep (world,STEP_SIZE);
 
     // remove all contact joints
     dJointGroupEmpty (contactgroup);

@@ -167,9 +167,13 @@ static dReal getInnerProduct(const dReal *a, const dReal *b){
     return a[0] * b[0] + a[1] * b[1];
 }
 
+// ベクトル2要素の長さ
+
 static dReal getLength(dReal x, dReal y){
     return sqrt(x*x+y*y);
 }
+
+// 回転行列から水平角度を計算
 
 static dReal getHorizontalAngleFromR(const dReal *R){
     return -atan2(R[4],R[0]);
@@ -188,7 +192,17 @@ static dReal getHorizontalAngle(dGeomID a, dGeomID b){
 
     const dReal cos_theta = getInnerProduct(ab, x_pos) / getLength(ab[0], ab[1]);
     const dReal theta = - acos(cos_theta);
-    return theta - a_angle;
+
+    dReal angle = theta - a_angle;
+
+    if (angle < - M_PI){
+        angle = 2 * M_PI + angle;
+    }
+    else if (angle > M_PI){
+        angle = angle - 2 * M_PI;
+    }
+
+    return angle;
 }
 
 // 水平距離の計算
@@ -217,10 +231,14 @@ static void calculateMotorSpeed(dReal dist, dReal theta, dReal *motorSpeed){
   // (2)マスターが後方にいる場合、旋回する
   // (3)マスターが前方にいる場合、直進する
   // (4)それ以外の場合、カーブ走行する
-  if (theta < - M_PI / 2 || theta > M_PI / 2){
+  if (theta < - M_PI / 2){
     // (2)マスターが後方にいる場合、旋回する
     rMotorSpeed = MAX_MOTOR_SPEED;
     lMotorSpeed = - MAX_MOTOR_SPEED;
+  }
+  else if (theta > M_PI / 2){
+    rMotorSpeed = - MAX_MOTOR_SPEED;
+    lMotorSpeed = MAX_MOTOR_SPEED;
   }
 
   motorSpeed[0] = rMotorSpeed;

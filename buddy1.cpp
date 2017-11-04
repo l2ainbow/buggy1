@@ -57,6 +57,7 @@ this also shows you how to use geom groups.
 #define CMASS 1		   // バディの重さ [kg]
 #define WMASS 0.2	   // タイヤの重さ [kg]
 #define HEIGHT_MASTER 1.8 // マスターの高さ [m]
+#define SPEED_MASTER 0.5 // マスターの歩行速度 [m/s]
 #define MAX_MOTOR_SPEED (M_PI / 2) // モータの最大回転速度 [rad/s]
 
 // dynamics and collision objects (chassis, 3 wheels, environment)
@@ -79,10 +80,8 @@ static dReal speed=0; // バディの直進量
 static dReal steer=0; // バディの旋回量
 static int step = 0; // シミュレーション開始からのステップ数
 static dReal motorSpeed[2] = {0.0, 0.0}; // 左右モータの回転速度
-static bool goForward = false;
-static bool goBack = false;
-static bool goLeft = false;
-static bool goRight = false;
+static int goForward = 0;
+static int goLeft = 0;
 
 // シミュレーション開始前に呼ばれる関数
 // 衝突関係の計算
@@ -157,26 +156,20 @@ static void command (int cmd)
   case ' ':
     speed = 0;
     steer = 0;
-    goForward = false;
-    goBack = false;
-    goLeft = false;
-    goRight = false;
+    goForward = 0;
+    goLeft = 0;
     break;
   case 'i':
-    goForward = true;
-    goBack = false;
+    goForward += 1;
     break;
   case 'k':
-    goForward = false;
-    goBack = true;
+    goForward -= 1;
     break;
   case 'j':
-    goLeft = true;
-    goRight = false;
+    goLeft += 1;
     break;
   case 'l':
-    goLeft = false;
-    goRight = true;
+    goLeft -= 1;
     break;
   case '1': {
       FILE *f = fopen ("state.dif","wt");
@@ -280,16 +273,8 @@ static void calculateMotorSpeed(dReal dist, dReal theta, dReal *motorSpeed){
 
 static void moveMaster(){
     const dReal *pos = dGeomGetPosition(master);
-    dReal x = 0;
-    dReal y = 0;
-    if (goForward)
-        x += 0.01;
-    if (goBack)
-        x -= 0.01;
-    if (goLeft)
-        y += 0.01;
-    if (goRight)
-        y -= 0.01;
+    dReal x = goForward * SPEED_MASTER * STEP_SIZE;
+    dReal y = goLeft * SPEED_MASTER * STEP_SIZE;
     dGeomSetPosition(master, pos[0] + x, pos[1] + y, pos[2]);
 }
 

@@ -67,8 +67,11 @@ this also shows you how to use geom groups.
 #define HEIGHT_MASTER 1.8 // マスターの高さ [m]
 #define SPEED_MASTER 0.5 // マスターの歩行速度 [m/s]
 
-#define EFFICIENT 0.5 // モータの回転効率（実際の回転速度/最大回転速度; 摩擦や空滑り等で効率減）
-#define MAX_MOTOR_SPEED 2 * M_PI * 12300 / 60 / 38.2 * EFFICIENT // モータの最大回転速度 [rad/s]
+#define EFFICIENT 0.5 // モータの回転効率（=実際の回転速度/最大回転速度; 摩擦や空滑り等で効率減）
+#define GEAR_RATIO 38.2 // モータのギア比
+#define NO_LOAD_SPEED 12300 // 無負荷回転数 [rpm]
+#define MAX_MOTOR_SPEED 2 * M_PI * NO_LOAD_SPEED / 60 / GEAR_RATIO * EFFICIENT // モータの最大回転速度 [rad/s]
+
 #define HEIGHT_CAMERA 5.0 // カメラ位置の高さ [m]
 #define GRAVITY -9.80665 // 重力加速度 [m/s2]
 
@@ -368,6 +371,8 @@ static void simLoop (int pause)
         dReal dist = getHorizontalDistance(box[0], master);
         dReal theta = getHorizontalAngle(box[0], master);
         calculateMotorSpeed(dist, theta, motorSpeed);
+
+        // 開始からの時間[s]、マスターとの距離[m]、マスターとの角度[rad]([度])、右モータの回転速度[rad/s]、左モータの回転速度[rad/s]の表示
         printf("sec=%6.1f, dist=%0.2f, theta=%0.2f(%3d deg), rMotor=%0.1f, lMotor=%0.1f\n", step*STEP_SIZE, dist, theta, (int)(theta * 180 / M_PI),  motorSpeed[0], motorSpeed[1]);
     }
 

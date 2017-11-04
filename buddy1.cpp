@@ -49,16 +49,26 @@ this also shows you how to use geom groups.
 // some constants
 
 #define STEP_SIZE 0.01 // 1ステップの時間[s]
+#define CONTROL_CYCLE 0.5 // 制御周期 [s]
+
 #define LENGTH 0.7	   // バディの長さ [m]
 #define WIDTH 0.5	   // バディの幅 [m]
 #define HEIGHT 0.2	   // バディの高さ [m]
 #define RADIUS 0.18	   // タイヤの直径 [m]
 #define STARTZ 0.5	   // バディのスタート高さ [m]
+
 #define CMASS 1		   // バディの重さ [kg]
 #define WMASS 0.2	   // タイヤの重さ [kg]
+
+#define DIST_FORWARD_MASTER 5.0 // マスターの初期位置（バディから前方向に何mか）[m]
+#define DIST_LEFTWARD_MASTER -3.0 // マスターの初期位置（バディから左方向に何mか）[m]
+
 #define HEIGHT_MASTER 1.8 // マスターの高さ [m]
 #define SPEED_MASTER 0.5 // マスターの歩行速度 [m/s]
+
 #define MAX_MOTOR_SPEED (M_PI / 2) // モータの最大回転速度 [rad/s]
+#define HEIGHT_CAMERA 15.0 // カメラ位置の高さ [m]
+#define GRAVITY -9.80665 // 重力加速度 [m/s2]
 
 // dynamics and collision objects (chassis, 3 wheels, environment)
 
@@ -122,10 +132,8 @@ static void start()
 {
   dAllocateODEDataForThread(dAllocateMaskAll);
 
-  static float xyz[3] = {0,0,10.0f};
+  static float xyz[3] = {0,0,HEIGHT_CAMERA};
   static float hpr[3] = {0,-90,0};
-  //static float xyz[3] = {0.8317f*4,-0.9817f*4,0.8000f*2};
-  //static float hpr[3] = {121.0000f,-27.5000f,0.0000f};
   dsSetViewpoint (xyz,hpr);
   printf ("Press:\t'e' to increase speed.\n"
 	  "\t'd' to decrease speed.\n"
@@ -141,36 +149,46 @@ static void start()
 static void command (int cmd)
 {
   switch (cmd) {
+  // eを押したら、バディを前進
   case 'e':
     speed += 1.0;
     break;
+  // dを押したら、バディを後進
   case 'd':
     speed += -1.0;
     break;
+  // sを押したら、バディを左方向に旋回
   case 's':
     steer += 1.0;
     break;
+  // fを押したら、バディを右方向に旋回
   case 'f':
     steer += -1.0;
     break;
+  // スペースを押したら、バディとマスターを停止
   case ' ':
     speed = 0;
     steer = 0;
     goForward = 0;
     goLeft = 0;
     break;
+  // iを押したら、マスターを画面上方向に進める（N回押したらN倍速）
   case 'i':
     goForward += 1;
     break;
+  // kを押したら、マスターを画面下方向に進める（N回押したらN倍速）
   case 'k':
     goForward -= 1;
     break;
+  // jを押したら、マスターを画面左方向に進める（N回押したらN倍速）
   case 'j':
     goLeft += 1;
     break;
+  // lを押したら、マスターを画面右方向に進める（N回押したらN倍速）
   case 'l':
     goLeft -= 1;
     break;
+  // 1を押したら、現在の状態を保存
   case '1': {
       FILE *f = fopen ("state.dif","wt");
       if (f) {
@@ -271,11 +289,19 @@ static void calculateMotorSpeed(dReal dist, dReal theta, dReal *motorSpeed){
 
 /** ここまで **/
 
+// マスターを動かす
+
 static void moveMaster(){
     const dReal *pos = dGeomGetPosition(master);
     dReal x = goForward * SPEED_MASTER * STEP_SIZE;
     dReal y = goLeft * SPEED_MASTER * STEP_SIZE;
     dGeomSetPosition(master, pos[0] + x, pos[1] + y, pos[2]);
+}
+
+// 現在時点が制御周期か
+
+static bool isControlCycle(){
+    return step % (int)(CONTROL_CYCLE / STEP_SIZE) == 0;
 }
 
 // シミュレーションのループ実行
@@ -290,20 +316,23 @@ static void simLoop (int pause)
     // master
     moveMaster();
 
-    if (step % 100 == 0)
+    // 制御周期になったら、距離・角度を計測し、それに応じてモータの速度を変更する
+    if (isControlCycle())
     {
         dReal dist = getHorizontalDistance(box[0], master);
         dReal theta = getHorizontalAngle(box[0], master);
         calculateMotorSpeed(dist, theta, motorSpeed);
-        printf("sec=%6d, dist=%0.2f, theta=%0.2f(%3d deg), rMotor=%0.1f, lMotor=%0.1f\n", (int)(step*STEP_SIZE), dist, theta, (int)(theta * 180 / M_PI),  motorSpeed[0], motorSpeed[1]);
+        printf("sec=%6.1f, dist=%0.2f, theta=%0.2f(%3d deg), rMotor=%0.1f, lMotor=%0.1f\n", step*STEP_SIZE, dist, theta, (int)(theta * 180 / M_PI),  motorSpeed[0], motorSpeed[1]);
     }
-    // motor
+
+    // バディを手動操作している場合は、その操作量で動作する
     if (speed != 0 || steer != 0){
         dJointSetHinge2Param (joint[0],dParamVel2,-speed+steer);
         dJointSetHinge2Param (joint[1],dParamVel2,-speed-steer);
         dJointSetHinge2Param (joint[2],dParamVel2,-speed+steer);
         dJointSetHinge2Param (joint[3],dParamVel2,-speed-steer);
     }
+    // バディを手動操作していない場合（停止している場合）は、自動制御する
     else {
         dJointSetHinge2Param (joint[0],dParamVel2,motorSpeed[0]);
         dJointSetHinge2Param (joint[1],dParamVel2,motorSpeed[1]);
@@ -318,8 +347,8 @@ static void simLoop (int pause)
     for (int i = 0; i< 4; i++){
         dJointSetHinge2Param (joint[i],dParamVel,0.0);
         dJointSetHinge2Param (joint[i],dParamFMax,0.1);
-        dJointSetHinge2Param (joint[i],dParamLoStop,-0.75);
-        dJointSetHinge2Param (joint[i],dParamHiStop,0.75);
+        dJointSetHinge2Param (joint[i],dParamLoStop,0);
+        dJointSetHinge2Param (joint[i],dParamHiStop,0);
         dJointSetHinge2Param (joint[i],dParamFudgeFactor,0.1);
     }
 
@@ -336,11 +365,13 @@ static void simLoop (int pause)
   dsDrawBox (dBodyGetPosition(body[0]),dBodyGetRotation(body[0]),sides);
   dsSetColor (1,0,0);
   for (i=1; i<=2; i++) dsDrawCylinder (dBodyGetPosition(body[i]),
-    dBodyGetRotation(body[i]),0.02f,RADIUS);
+    dBodyGetRotation(body[i]),0.10f,RADIUS);
   dsSetColor (1,1,1);
   for (i=3; i<=4; i++) dsDrawCylinder (dBodyGetPosition(body[i]),
-    dBodyGetRotation(body[i]),0.02f,RADIUS);
+    dBodyGetRotation(body[i]),0.10f,RADIUS);
 
+  dsSetColor (0,0,1);
+  dsSetTexture(DS_NONE);
   dVector3 ss;
   dGeomBoxGetLengths(master, ss);
   dsDrawBox(dGeomGetPosition(master), dGeomGetRotation(master), ss);
@@ -368,7 +399,7 @@ int main (int argc, char **argv)
   world = dWorldCreate();
   space = dHashSpaceCreate (0);
   contactgroup = dJointGroupCreate (0);
-  dWorldSetGravity (world,0,0,-9.80665);
+  dWorldSetGravity (world,0,0,GRAVITY);
   ground = dCreatePlane (space,0,0,1,0);
 
   // chassis body
@@ -436,9 +467,7 @@ int main (int argc, char **argv)
 
   // create master who is the target person
   master = dCreateBox (space,0.2,0.2,HEIGHT_MASTER);
-  dGeomSetPosition (master,5,-3,HEIGHT_MASTER/2.0);
-
-  // environment
+  dGeomSetPosition (master,DIST_FORWARD_MASTER,DIST_LEFTWARD_MASTER,HEIGHT_MASTER/2.0);
 
   // run simulation
   dsSimulationLoop (argc,argv,352*2,288*2,&fn);

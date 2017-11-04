@@ -193,7 +193,12 @@ static dReal getHorizontalAngle(dGeomID a, dGeomID b){
     const dReal x_pos[] = { 1, 0, 0 };
 
     const dReal cos_theta = getInnerProduct(ab, x_pos) / getLength(ab[0], ab[1]);
-    const dReal theta = - acos(cos_theta);
+    dReal theta = acos(cos_theta);
+    if (ab[1] > 0){
+        theta = - theta;
+    }
+
+    //printf("a_angle=%f, theta=%f, ab[0]=%f, ab[1]=%f\n", a_angle, theta, ab[0], ab[1]);
 
     dReal angle = theta - a_angle;
 
@@ -256,15 +261,16 @@ static void simLoop (int pause)
   int i;
   dReal motorSpeed[2] = {0.0, 0.0};
 
-  dReal dist = getHorizontalDistance(box[0], master);
-  dReal theta = getHorizontalAngle(box[0], master);
-  calculateMotorSpeed(dist, theta, motorSpeed);
-
   if (!pause) {
     step++;
 
     if (step % 100 == 0)
-        printf("sec=%6d, dist=%0.2f, theta=%0.2f, rMotor=%0.1f, lMotor=%0.1f\n", (int)(step*STEP_SIZE), dist, theta, motorSpeed[0], motorSpeed[1]);
+    {
+        dReal dist = getHorizontalDistance(box[0], master);
+        dReal theta = getHorizontalAngle(box[0], master);
+        calculateMotorSpeed(dist, theta, motorSpeed);
+        printf("sec=%6d, dist=%0.2f, theta=%0.2f(%3d deg), rMotor=%0.1f, lMotor=%0.1f\n", (int)(step*STEP_SIZE), dist, theta, (int)(theta * 180 / M_PI),  motorSpeed[0], motorSpeed[1]);
+    }
     // motor
     dJointSetHinge2Param (joint[0],dParamVel2,-speed+steer);
     //dJointSetHinge2Param (joint[0],dParamVel2,motorSpeed[0]);

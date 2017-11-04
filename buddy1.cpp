@@ -78,6 +78,7 @@ static dGeomID master; // master of buddy who is the target person
 static dReal speed=0; // バディの直進量
 static dReal steer=0; // バディの旋回量
 static int step = 0; // シミュレーション開始からのステップ数
+static dReal motorSpeed[2] = {0.0, 0.0};
 
 // シミュレーション開始前に呼ばれる関数
 // 衝突関係の計算
@@ -259,7 +260,6 @@ static void calculateMotorSpeed(dReal dist, dReal theta, dReal *motorSpeed){
 static void simLoop (int pause)
 {
   int i;
-  dReal motorSpeed[2] = {0.0, 0.0};
 
   if (!pause) {
     step++;
@@ -272,17 +272,21 @@ static void simLoop (int pause)
         printf("sec=%6d, dist=%0.2f, theta=%0.2f(%3d deg), rMotor=%0.1f, lMotor=%0.1f\n", (int)(step*STEP_SIZE), dist, theta, (int)(theta * 180 / M_PI),  motorSpeed[0], motorSpeed[1]);
     }
     // motor
-    dJointSetHinge2Param (joint[0],dParamVel2,-speed+steer);
-    //dJointSetHinge2Param (joint[0],dParamVel2,motorSpeed[0]);
+    if (speed != 0 || steer != 0){
+        dJointSetHinge2Param (joint[0],dParamVel2,-speed+steer);
+        dJointSetHinge2Param (joint[1],dParamVel2,-speed-steer);
+        dJointSetHinge2Param (joint[2],dParamVel2,-speed+steer);
+        dJointSetHinge2Param (joint[3],dParamVel2,-speed-steer);
+    }
+    else {
+        dJointSetHinge2Param (joint[0],dParamVel2,motorSpeed[0]);
+        dJointSetHinge2Param (joint[1],dParamVel2,motorSpeed[1]);
+        dJointSetHinge2Param (joint[2],dParamVel2,motorSpeed[0]);
+        dJointSetHinge2Param (joint[3],dParamVel2,motorSpeed[1]);
+    }
     dJointSetHinge2Param (joint[0],dParamFMax2,0.1);
-    dJointSetHinge2Param (joint[1],dParamVel2,-speed-steer);
-    //dJointSetHinge2Param (joint[1],dParamVel2,motorSpeed[1]);
     dJointSetHinge2Param (joint[1],dParamFMax2,0.1);
-    dJointSetHinge2Param (joint[2],dParamVel2,-speed+steer);
-    //dJointSetHinge2Param (joint[2],dParamVel2,motorSpeed[0]);
     dJointSetHinge2Param (joint[2],dParamFMax2,0.1);
-    dJointSetHinge2Param (joint[3],dParamVel2,-speed-steer);
-    //dJointSetHinge2Param (joint[3],dParamVel2,motorSpeed[1]);
     dJointSetHinge2Param (joint[3],dParamFMax2,0.1);
 
     for (int i = 0; i< 4; i++){

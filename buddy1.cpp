@@ -118,8 +118,10 @@ static void start()
 {
   dAllocateODEDataForThread(dAllocateMaskAll);
 
-  static float xyz[3] = {0.8317f*4,-0.9817f*4,0.8000f*2};
-  static float hpr[3] = {121.0000f,-27.5000f,0.0000f};
+  static float xyz[3] = {0,0,10.0f};
+  static float hpr[3] = {0,-90,0};
+  //static float xyz[3] = {0.8317f*4,-0.9817f*4,0.8000f*2};
+  //static float hpr[3] = {121.0000f,-27.5000f,0.0000f};
   dsSetViewpoint (xyz,hpr);
   printf ("Press:\t'e' to increase speed.\n"
 	  "\t'd' to decrease speed.\n"
@@ -265,12 +267,16 @@ static void simLoop (int pause)
         printf("sec=%6d, dist=%0.2f, theta=%0.2f, rMotor=%0.1f, lMotor=%0.1f\n", (int)(step*STEP_SIZE), dist, theta, motorSpeed[0], motorSpeed[1]);
     // motor
     dJointSetHinge2Param (joint[0],dParamVel2,-speed+steer);
+    //dJointSetHinge2Param (joint[0],dParamVel2,motorSpeed[0]);
     dJointSetHinge2Param (joint[0],dParamFMax2,0.1);
     dJointSetHinge2Param (joint[1],dParamVel2,-speed-steer);
+    //dJointSetHinge2Param (joint[1],dParamVel2,motorSpeed[1]);
     dJointSetHinge2Param (joint[1],dParamFMax2,0.1);
     dJointSetHinge2Param (joint[2],dParamVel2,-speed+steer);
+    //dJointSetHinge2Param (joint[2],dParamVel2,motorSpeed[0]);
     dJointSetHinge2Param (joint[2],dParamFMax2,0.1);
     dJointSetHinge2Param (joint[3],dParamVel2,-speed-steer);
+    //dJointSetHinge2Param (joint[3],dParamVel2,motorSpeed[1]);
     dJointSetHinge2Param (joint[3],dParamFMax2,0.1);
 
     for (int i = 0; i< 4; i++){
@@ -391,7 +397,7 @@ int main (int argc, char **argv)
 
   // create master who is the target person
   master = dCreateBox (space,0.2,0.2,HEIGHT_MASTER);
-  dGeomSetPosition (master,3,3,HEIGHT_MASTER/2.0);
+  dGeomSetPosition (master,5,-3,HEIGHT_MASTER/2.0);
 
   // environment
 

@@ -31,6 +31,7 @@ this also shows you how to use geom groups.
 #include <ode/ode.h>
 #include <drawstuff/drawstuff.h>
 #include "texturepath.h"
+#include <unistd.h>
 
 #ifdef _MSC_VER
 #pragma warning(disable:4244 4305)  // for VC++, no precision loss complaints
@@ -48,34 +49,35 @@ this also shows you how to use geom groups.
 
 // some constants
 
-#define STEP_SIZE 0.01 // 1ƒXƒeƒbƒv‚ÌŠÔ[s]
-#define CONTROL_CYCLE 0.5 // §ŒäüŠú [s]
+#define STEP_SIZE 0.01 // 1ã‚¹ãƒ†ãƒƒãƒ—ã®æ™‚é–“[s]
+#define CONTROL_CYCLE 0.5 // åˆ¶å¾¡å‘¨æœŸ [s]
 
-#define LENGTH 0.7	   // ƒoƒfƒB‚Ì’·‚³ [m]
-#define WIDTH 0.5	   // ƒoƒfƒB‚Ì• [m]
-#define HEIGHT 0.2	   // ƒoƒfƒB‚Ì‚‚³ [m]
-#define RADIUS 0.18	   // ƒ^ƒCƒ„‚Ì’¼Œa [m]
-#define STARTZ 0.5	   // ƒoƒfƒB‚ÌƒXƒ^[ƒg‚‚³ [m]
+#define LENGTH 0.1	   // ãƒãƒ‡ã‚£ã®é•·ã• [m]
+#define WIDTH 0.1	   // ãƒãƒ‡ã‚£ã®å¹… [m]
+#define HEIGHT 0.05	   // ãƒãƒ‡ã‚£ã®é«˜ã• [m]
+#define RADIUS 0.025	   // ã‚¿ã‚¤ãƒ¤ã®åŠå¾„ [m]
+#define STARTZ 0.1	   // ãƒãƒ‡ã‚£ã®ã‚¹ã‚¿ãƒ¼ãƒˆé«˜ã• [m]
 
-#define CMASS 1		   // ƒoƒfƒB‚Ìd‚³ [kg]
-#define WMASS 0.2	   // ƒ^ƒCƒ„‚Ìd‚³ [kg]
+#define CMASS 1		   // ãƒãƒ‡ã‚£ã®é‡ã• [kg]
+#define WMASS 0.2	   // ã‚¿ã‚¤ãƒ¤ã®é‡ã• [kg]
 
-#define DIST_FORWARD_MASTER 5.0 // ƒ}ƒXƒ^[‚Ì‰ŠúˆÊ’uiƒoƒfƒB‚©‚ç‘O•ûŒü‚É‰½m‚©j[m]
-#define DIST_LEFTWARD_MASTER -3.0 // ƒ}ƒXƒ^[‚Ì‰ŠúˆÊ’uiƒoƒfƒB‚©‚ç¶•ûŒü‚É‰½m‚©j[m]
+#define DIST_FORWARD_MASTER 1.0 // ãƒã‚¹ã‚¿ãƒ¼ã®åˆæœŸä½ç½®ï¼ˆãƒãƒ‡ã‚£ã‹ã‚‰å‰æ–¹å‘ã«ä½•mã‹ï¼‰[m]
+#define DIST_LEFTWARD_MASTER -1.0 // ãƒã‚¹ã‚¿ãƒ¼ã®åˆæœŸä½ç½®ï¼ˆãƒãƒ‡ã‚£ã‹ã‚‰å·¦æ–¹å‘ã«ä½•mã‹ï¼‰[m]
 
-#define HEIGHT_MASTER 1.8 // ƒ}ƒXƒ^[‚Ì‚‚³ [m]
-#define SPEED_MASTER 0.5 // ƒ}ƒXƒ^[‚Ì•às‘¬“x [m/s]
+#define HEIGHT_MASTER 1.8 // ãƒã‚¹ã‚¿ãƒ¼ã®é«˜ã• [m]
+#define SPEED_MASTER 0.5 // ãƒã‚¹ã‚¿ãƒ¼ã®æ­©è¡Œé€Ÿåº¦ [m/s]
 
-#define MAX_MOTOR_SPEED (M_PI / 2) // ƒ‚[ƒ^‚ÌÅ‘å‰ñ“]‘¬“x [rad/s]
-#define HEIGHT_CAMERA 15.0 // ƒJƒƒ‰ˆÊ’u‚Ì‚‚³ [m]
-#define GRAVITY -9.80665 // d—Í‰Á‘¬“x [m/s2]
+#define EFFICIENT 0.5 // ãƒ¢ãƒ¼ã‚¿ã®å›è»¢åŠ¹ç‡ï¼ˆå®Ÿéš›ã®å›è»¢é€Ÿåº¦/æœ€å¤§å›è»¢é€Ÿåº¦; æ‘©æ“¦ã‚„ç©ºæ»‘ã‚Šç­‰ã§åŠ¹ç‡æ¸›ï¼‰
+#define MAX_MOTOR_SPEED 2 * M_PI * 12300 / 60 / 38.2 * EFFICIENT // ãƒ¢ãƒ¼ã‚¿ã®æœ€å¤§å›è»¢é€Ÿåº¦ [rad/s]
+#define HEIGHT_CAMERA 5.0 // ã‚«ãƒ¡ãƒ©ä½ç½®ã®é«˜ã• [m]
+#define GRAVITY -9.80665 // é‡åŠ›åŠ é€Ÿåº¦ [m/s2]
 
 // dynamics and collision objects (chassis, 3 wheels, environment)
 
 static dWorldID world;
 static dSpaceID space;
-static dBodyID body[5]; // ƒ{ƒbƒNƒX~‚PAƒ^ƒCƒ„~‚S
-static dJointID joint[4];	// ƒ^ƒCƒ„‚²‚Æ‚ÉƒWƒ‡ƒCƒ“ƒgi0:¶‘O, 1:‰E‘O, 2:¶Œã, 3:‰EŒãj
+static dBodyID body[5]; // ãƒœãƒƒã‚¯ã‚¹Ã—ï¼‘ã€ã‚¿ã‚¤ãƒ¤Ã—ï¼”
+static dJointID joint[4];	// ã‚¿ã‚¤ãƒ¤ã”ã¨ã«ã‚¸ãƒ§ã‚¤ãƒ³ãƒˆï¼ˆ0:å·¦å‰, 1:å³å‰, 2:å·¦å¾Œ, 3:å³å¾Œï¼‰
 static dJointGroupID contactgroup;
 static dGeomID ground;
 static dSpaceID car_space;
@@ -86,15 +88,15 @@ static dGeomID master; // master of buddy who is the target person
 
 // things that the user controls
 
-static dReal speed=0; // ƒoƒfƒB‚Ì’¼i—Ê
-static dReal steer=0; // ƒoƒfƒB‚Ìù‰ñ—Ê
-static int step = 0; // ƒVƒ~ƒ…ƒŒ[ƒVƒ‡ƒ“ŠJn‚©‚ç‚ÌƒXƒeƒbƒv”
-static dReal motorSpeed[2] = {0.0, 0.0}; // ¶‰Eƒ‚[ƒ^‚Ì‰ñ“]‘¬“x
+static dReal speed=0; // ãƒãƒ‡ã‚£ã®ç›´é€²é‡
+static dReal steer=0; // ãƒãƒ‡ã‚£ã®æ—‹å›é‡
+static int step = 0; // ã‚·ãƒŸãƒ¥ãƒ¬ãƒ¼ã‚·ãƒ§ãƒ³é–‹å§‹ã‹ã‚‰ã®ã‚¹ãƒ†ãƒƒãƒ—æ•°
+static dReal motorSpeed[2] = {0.0, 0.0}; // å·¦å³ãƒ¢ãƒ¼ã‚¿ã®å›è»¢é€Ÿåº¦
 static int goForward = 0;
 static int goLeft = 0;
 
-// ƒVƒ~ƒ…ƒŒ[ƒVƒ‡ƒ“ŠJn‘O‚ÉŒÄ‚Î‚ê‚éŠÖ”
-// Õ“ËŠÖŒW‚ÌŒvZ
+// ã‚·ãƒŸãƒ¥ãƒ¬ãƒ¼ã‚·ãƒ§ãƒ³é–‹å§‹å‰ã«å‘¼ã°ã‚Œã‚‹é–¢æ•°
+// è¡çªé–¢ä¿‚ã®è¨ˆç®—
 
 static void nearCallback (void *data, dGeomID o1, dGeomID o2)
 {
@@ -144,51 +146,51 @@ static void start()
 }
 
 
-// ƒL[ƒ{[ƒh‚ğ‰Ÿ‚µ‚½‚Æ‚«‚ÉŒÄ‚Ño‚³‚ê‚éŠÖ”
+// ã‚­ãƒ¼ãƒœãƒ¼ãƒ‰ã‚’æŠ¼ã—ãŸã¨ãã«å‘¼ã³å‡ºã•ã‚Œã‚‹é–¢æ•°
 
 static void command (int cmd)
 {
   switch (cmd) {
-  // e‚ğ‰Ÿ‚µ‚½‚çAƒoƒfƒB‚ğ‘Oi
+  // eã‚’æŠ¼ã—ãŸã‚‰ã€ãƒãƒ‡ã‚£ã‚’å‰é€²
   case 'e':
     speed += 1.0;
     break;
-  // d‚ğ‰Ÿ‚µ‚½‚çAƒoƒfƒB‚ğŒãi
+  // dã‚’æŠ¼ã—ãŸã‚‰ã€ãƒãƒ‡ã‚£ã‚’å¾Œé€²
   case 'd':
     speed += -1.0;
     break;
-  // s‚ğ‰Ÿ‚µ‚½‚çAƒoƒfƒB‚ğ¶•ûŒü‚Éù‰ñ
+  // sã‚’æŠ¼ã—ãŸã‚‰ã€ãƒãƒ‡ã‚£ã‚’å·¦æ–¹å‘ã«æ—‹å›
   case 's':
     steer += 1.0;
     break;
-  // f‚ğ‰Ÿ‚µ‚½‚çAƒoƒfƒB‚ğ‰E•ûŒü‚Éù‰ñ
+  // fã‚’æŠ¼ã—ãŸã‚‰ã€ãƒãƒ‡ã‚£ã‚’å³æ–¹å‘ã«æ—‹å›
   case 'f':
     steer += -1.0;
     break;
-  // ƒXƒy[ƒX‚ğ‰Ÿ‚µ‚½‚çAƒoƒfƒB‚Æƒ}ƒXƒ^[‚ğ’â~
+  // ã‚¹ãƒšãƒ¼ã‚¹ã‚’æŠ¼ã—ãŸã‚‰ã€ãƒãƒ‡ã‚£ã¨ãƒã‚¹ã‚¿ãƒ¼ã‚’åœæ­¢
   case ' ':
     speed = 0;
     steer = 0;
     goForward = 0;
     goLeft = 0;
     break;
-  // i‚ğ‰Ÿ‚µ‚½‚çAƒ}ƒXƒ^[‚ğ‰æ–Êã•ûŒü‚Éi‚ß‚éiN‰ñ‰Ÿ‚µ‚½‚çN”{‘¬j
+  // iã‚’æŠ¼ã—ãŸã‚‰ã€ãƒã‚¹ã‚¿ãƒ¼ã‚’ç”»é¢ä¸Šæ–¹å‘ã«é€²ã‚ã‚‹ï¼ˆNå›æŠ¼ã—ãŸã‚‰Nå€é€Ÿï¼‰
   case 'i':
     goForward += 1;
     break;
-  // k‚ğ‰Ÿ‚µ‚½‚çAƒ}ƒXƒ^[‚ğ‰æ–Ê‰º•ûŒü‚Éi‚ß‚éiN‰ñ‰Ÿ‚µ‚½‚çN”{‘¬j
+  // kã‚’æŠ¼ã—ãŸã‚‰ã€ãƒã‚¹ã‚¿ãƒ¼ã‚’ç”»é¢ä¸‹æ–¹å‘ã«é€²ã‚ã‚‹ï¼ˆNå›æŠ¼ã—ãŸã‚‰Nå€é€Ÿï¼‰
   case 'k':
     goForward -= 1;
     break;
-  // j‚ğ‰Ÿ‚µ‚½‚çAƒ}ƒXƒ^[‚ğ‰æ–Ê¶•ûŒü‚Éi‚ß‚éiN‰ñ‰Ÿ‚µ‚½‚çN”{‘¬j
+  // jã‚’æŠ¼ã—ãŸã‚‰ã€ãƒã‚¹ã‚¿ãƒ¼ã‚’ç”»é¢å·¦æ–¹å‘ã«é€²ã‚ã‚‹ï¼ˆNå›æŠ¼ã—ãŸã‚‰Nå€é€Ÿï¼‰
   case 'j':
     goLeft += 1;
     break;
-  // l‚ğ‰Ÿ‚µ‚½‚çAƒ}ƒXƒ^[‚ğ‰æ–Ê‰E•ûŒü‚Éi‚ß‚éiN‰ñ‰Ÿ‚µ‚½‚çN”{‘¬j
+  // lã‚’æŠ¼ã—ãŸã‚‰ã€ãƒã‚¹ã‚¿ãƒ¼ã‚’ç”»é¢å³æ–¹å‘ã«é€²ã‚ã‚‹ï¼ˆNå›æŠ¼ã—ãŸã‚‰Nå€é€Ÿï¼‰
   case 'l':
     goLeft -= 1;
     break;
-  // 1‚ğ‰Ÿ‚µ‚½‚çAŒ»İ‚Ìó‘Ô‚ğ•Û‘¶
+  // 1ã‚’æŠ¼ã—ãŸã‚‰ã€ç¾åœ¨ã®çŠ¶æ…‹ã‚’ä¿å­˜
   case '1': {
       FILE *f = fopen ("state.dif","wt");
       if (f) {
@@ -199,25 +201,25 @@ static void command (int cmd)
   }
 }
 
-// “àÏ‚ÌŒvZ@
+// å†…ç©ã®è¨ˆç®—ã€€
 
 static dReal getInnerProduct(const dReal *a, const dReal *b){
     return a[0] * b[0] + a[1] * b[1];
 }
 
-// ƒxƒNƒgƒ‹2—v‘f‚Ì’·‚³
+// ãƒ™ã‚¯ãƒˆãƒ«2è¦ç´ ã®é•·ã•
 
 static dReal getLength(dReal x, dReal y){
     return sqrt(x*x+y*y);
 }
 
-// ‰ñ“]s—ñ‚©‚ç…•½Šp“x‚ğŒvZ
+// å›è»¢è¡Œåˆ—ã‹ã‚‰æ°´å¹³è§’åº¦ã‚’è¨ˆç®—
 
 static dReal getHorizontalAngleFromR(const dReal *R){
     return -atan2(R[4],R[0]);
 }
 
-// …•½Šp“x‚ÌŒvZ
+// æ°´å¹³è§’åº¦ã®è¨ˆç®—
 
 static dReal getHorizontalAngle(dGeomID a, dGeomID b){
     const dReal *a_rot = dGeomGetRotation(a);
@@ -248,7 +250,7 @@ static dReal getHorizontalAngle(dGeomID a, dGeomID b){
     return angle;
 }
 
-// …•½‹——£‚ÌŒvZ
+// æ°´å¹³è·é›¢ã®è¨ˆç®—
 
 static dReal getHorizontalDistance(dGeomID a, dGeomID b){
   const dReal *a_pos = dGeomGetPosition(a);
@@ -257,39 +259,83 @@ static dReal getHorizontalDistance(dGeomID a, dGeomID b){
   return dist;
 }
 
-/** ‘O“‡‚­‚ñ‚ª‚±‚±‚ğÀ‘• **/
+/** å‰å³¶ãã‚“ãŒã“ã“ã‚’å®Ÿè£… **/
 
-// ƒ‚[ƒ^‚Ì‰ñ“]‘¬“x‚ÌŒvZ
+// ãƒ¢ãƒ¼ã‚¿ã®å›è»¢é€Ÿåº¦ã®è¨ˆç®—
 //
-// dist: ƒ}ƒXƒ^[‚Æ‚Ì‹——£[m]
-// theta: ƒoƒfƒB‚©‚çŒ©‚½ƒ}ƒXƒ^[‚ÌŠp“x(ƒ}ƒCƒiƒX:¶•ûŒüAƒvƒ‰ƒX:‰E•ûŒü)[rad]
-// motorSpeed: ƒ‚[ƒ^‚Ì‰ñ“]‘¬“x(0:‰Eƒ‚[ƒ^A1:¶ƒ‚[ƒ^)[rad/s]
+// dist: ãƒã‚¹ã‚¿ãƒ¼ã¨ã®è·é›¢[m]
+// theta: ãƒãƒ‡ã‚£ã‹ã‚‰è¦‹ãŸãƒã‚¹ã‚¿ãƒ¼ã®è§’åº¦(ãƒã‚¤ãƒŠã‚¹:å·¦æ–¹å‘ã€ãƒ—ãƒ©ã‚¹:å³æ–¹å‘)[rad]
+// motorSpeed: ãƒ¢ãƒ¼ã‚¿ã®å›è»¢é€Ÿåº¦(0:å³ãƒ¢ãƒ¼ã‚¿ã€1:å·¦ãƒ¢ãƒ¼ã‚¿)[rad/s]
 
 static void calculateMotorSpeed(dReal dist, dReal theta, dReal *motorSpeed){
-  dReal rMotorSpeed = 0.0; // ‰Eƒ‚[ƒ^‚Ì‰ñ“]‘¬“x[rad/s]
-  dReal lMotorSpeed = 0.0; // ¶ƒ‚[ƒ^‚Ì‰ñ“]‘¬“x[rad/s]
+  dReal rMotorSpeed = 0.0; // å³ãƒ¢ãƒ¼ã‚¿ã®å›è»¢é€Ÿåº¦[rad/s]
+  dReal lMotorSpeed = 0.0; // å·¦ãƒ¢ãƒ¼ã‚¿ã®å›è»¢é€Ÿåº¦[rad/s]
 
-  // ‚±‚ÌŒã‚ÉˆÈ‰º‚ÌƒvƒƒOƒ‰ƒ€‚ğ‘‚­
-  // (1)‹——£‚ª‹ß‚¢‚Í’â~‚·‚é
-  // (2)ƒ}ƒXƒ^[‚ªŒã•û‚É‚¢‚éê‡Aù‰ñ‚·‚é
-  // (3)ƒ}ƒXƒ^[‚ª‘O•û‚É‚¢‚éê‡A’¼i‚·‚é
-  // (4)‚»‚êˆÈŠO‚Ìê‡AƒJ[ƒu‘–s‚·‚é
-  if (theta < - M_PI / 2){
+  // ã“ã®å¾Œã«ä»¥ä¸‹ã®ãƒ—ãƒ­ã‚°ãƒ©ãƒ ã‚’æ›¸ã
+  // (1)è·é›¢ãŒè¿‘ã„æ™‚ã¯åœæ­¢ã™ã‚‹
+  // (2)ãƒã‚¹ã‚¿ãƒ¼ãŒå¾Œæ–¹ã«ã„ã‚‹å ´åˆã€æ—‹å›ã™ã‚‹
+  // (3)ãƒã‚¹ã‚¿ãƒ¼ãŒå‰æ–¹ã«ã„ã‚‹å ´åˆã€ç›´é€²ã™ã‚‹
+  // (4)ãã‚Œä»¥å¤–ã®å ´åˆã€ã‚«ãƒ¼ãƒ–èµ°è¡Œã™ã‚‹
+
+  if (dist < 1 ){
+    rMotorSpeed = 0;
+    lMotorSpeed = 0;
+  }
+
+  else if (theta < - M_PI / 2){
+    // å¾Œæ–¹å·¦ã«ã„ã‚‹æ™‚ã¯å·¦æ—‹å›
     rMotorSpeed = MAX_MOTOR_SPEED;
     lMotorSpeed = - MAX_MOTOR_SPEED;
   }
   else if (theta > M_PI / 2){
+    // å¾Œæ–¹å³ã«ã„ã‚‹æ™‚ã¯å³æ—‹å›
     rMotorSpeed = - MAX_MOTOR_SPEED;
     lMotorSpeed = MAX_MOTOR_SPEED;
   }
 
-  motorSpeed[0] = rMotorSpeed;
-  motorSpeed[1] = lMotorSpeed;
+  else if (theta < M_PI / 18.0 && theta > - M_PI / 18.0){
+    rMotorSpeed = MAX_MOTOR_SPEED;
+    lMotorSpeed = - MAX_MOTOR_SPEED;
+  }
+
+  else {
+    double a = (dist / (2 * sin(theta))) * (dist / (2 * sin(theta)));
+    double b = 0.25 * (LENGTH * LENGTH + WIDTH * WIDTH);
+    double c = dist / (2 * sin(theta));
+    double d = sqrt(LENGTH * LENGTH + WIDTH * WIDTH);
+    double e = WIDTH / sqrt(LENGTH * LENGTH + WIDTH * WIDTH);
+    double f = M_PI * RADIUS;
+    double wr = theta * sqrt(a + b - c * d * e) / f;
+    double wl = theta * sqrt(a + b + c * d * e) / f;
+
+    /*double wr = theta * sqrt((dist / (2 * sin(theta)) * (dist / (2 * sin(theta)))
+                            + (0.25 * LENGTH * LENGTH + 0.25 * WIDTH * WIDTH)
+                            â€“ (dist /(2 * sin(theta)) * (sqrt(LENGTH * LENGTH + WIDTH * WIDTH))
+                            * (WIDTH / sqrt(LENGTH * LENGTH + WIDTH * WIDTH))) / (M_PI * RADIUS);*/
+    /*double wl = theta * sqrt((dist / (2 * sin(theta)) * (dist / (2 * sin(theta)))
+                            + (0.25 * LENGTH * LENGTH + 0.25 * WIDTH * WIDTH)
+                            + (dist / (2 * sin(theta)) * (sqrt(LENGTH * LENGTH + WIDTH * WIDTH))
+                            * (WIDTH / sqrt(LENGTH * LENGTH + WIDTH * WIDTH))) / (M_PI * RADIUS);*/
+
+      if (wr < wl) {
+        double lower = wr / wl;
+        rMotorSpeed = MAX_MOTOR_SPEED * lower;
+        lMotorSpeed = MAX_MOTOR_SPEED;
+      }
+      else {
+        double lower = wl / wr;
+        rMotorSpeed = MAX_MOTOR_SPEED;
+        lMotorSpeed = MAX_MOTOR_SPEED * lower;
+      }
+  }
+
+  motorSpeed[0] = lMotorSpeed;
+  motorSpeed[1] = rMotorSpeed;
 }
 
-/** ‚±‚±‚Ü‚Å **/
+/** ã“ã“ã¾ã§ **/
 
-// ƒ}ƒXƒ^[‚ğ“®‚©‚·
+// ãƒã‚¹ã‚¿ãƒ¼ã‚’å‹•ã‹ã™
 
 static void moveMaster(){
     const dReal *pos = dGeomGetPosition(master);
@@ -298,13 +344,13 @@ static void moveMaster(){
     dGeomSetPosition(master, pos[0] + x, pos[1] + y, pos[2]);
 }
 
-// Œ»İ“_‚ª§ŒäüŠú‚©
+// ç¾åœ¨æ™‚ç‚¹ãŒåˆ¶å¾¡å‘¨æœŸã‹
 
 static bool isControlCycle(){
     return step % (int)(CONTROL_CYCLE / STEP_SIZE) == 0;
 }
 
-// ƒVƒ~ƒ…ƒŒ[ƒVƒ‡ƒ“‚Ìƒ‹[ƒvÀs
+// ã‚·ãƒŸãƒ¥ãƒ¬ãƒ¼ã‚·ãƒ§ãƒ³ã®ãƒ«ãƒ¼ãƒ—å®Ÿè¡Œ
 
 static void simLoop (int pause)
 {
@@ -316,7 +362,7 @@ static void simLoop (int pause)
     // master
     moveMaster();
 
-    // §ŒäüŠú‚É‚È‚Á‚½‚çA‹——£EŠp“x‚ğŒv‘ª‚µA‚»‚ê‚É‰‚¶‚Äƒ‚[ƒ^‚Ì‘¬“x‚ğ•ÏX‚·‚é
+    // åˆ¶å¾¡å‘¨æœŸã«ãªã£ãŸã‚‰ã€è·é›¢ãƒ»è§’åº¦ã‚’è¨ˆæ¸¬ã—ã€ãã‚Œã«å¿œã˜ã¦ãƒ¢ãƒ¼ã‚¿ã®é€Ÿåº¦ã‚’å¤‰æ›´ã™ã‚‹
     if (isControlCycle())
     {
         dReal dist = getHorizontalDistance(box[0], master);
@@ -325,19 +371,19 @@ static void simLoop (int pause)
         printf("sec=%6.1f, dist=%0.2f, theta=%0.2f(%3d deg), rMotor=%0.1f, lMotor=%0.1f\n", step*STEP_SIZE, dist, theta, (int)(theta * 180 / M_PI),  motorSpeed[0], motorSpeed[1]);
     }
 
-    // ƒoƒfƒB‚ğè“®‘€ì‚µ‚Ä‚¢‚éê‡‚ÍA‚»‚Ì‘€ì—Ê‚Å“®ì‚·‚é
+    // ãƒãƒ‡ã‚£ã‚’æ‰‹å‹•æ“ä½œã—ã¦ã„ã‚‹å ´åˆã¯ã€ãã®æ“ä½œé‡ã§å‹•ä½œã™ã‚‹
     if (speed != 0 || steer != 0){
         dJointSetHinge2Param (joint[0],dParamVel2,-speed+steer);
         dJointSetHinge2Param (joint[1],dParamVel2,-speed-steer);
         dJointSetHinge2Param (joint[2],dParamVel2,-speed+steer);
         dJointSetHinge2Param (joint[3],dParamVel2,-speed-steer);
     }
-    // ƒoƒfƒB‚ğè“®‘€ì‚µ‚Ä‚¢‚È‚¢ê‡i’â~‚µ‚Ä‚¢‚éê‡j‚ÍA©“®§Œä‚·‚é
+    // ãƒãƒ‡ã‚£ã‚’æ‰‹å‹•æ“ä½œã—ã¦ã„ãªã„å ´åˆï¼ˆåœæ­¢ã—ã¦ã„ã‚‹å ´åˆï¼‰ã¯ã€è‡ªå‹•åˆ¶å¾¡ã™ã‚‹
     else {
-        dJointSetHinge2Param (joint[0],dParamVel2,motorSpeed[0]);
-        dJointSetHinge2Param (joint[1],dParamVel2,motorSpeed[1]);
-        dJointSetHinge2Param (joint[2],dParamVel2,motorSpeed[0]);
-        dJointSetHinge2Param (joint[3],dParamVel2,motorSpeed[1]);
+        dJointSetHinge2Param (joint[0],dParamVel2,-motorSpeed[0]);
+        dJointSetHinge2Param (joint[1],dParamVel2,-motorSpeed[1]);
+        dJointSetHinge2Param (joint[2],dParamVel2,-motorSpeed[0]);
+        dJointSetHinge2Param (joint[3],dParamVel2,-motorSpeed[1]);
     }
     dJointSetHinge2Param (joint[0],dParamFMax2,1.0);
     dJointSetHinge2Param (joint[1],dParamFMax2,1.0);
@@ -365,10 +411,10 @@ static void simLoop (int pause)
   dsDrawBox (dBodyGetPosition(body[0]),dBodyGetRotation(body[0]),sides);
   dsSetColor (1,0,0);
   for (i=1; i<=2; i++) dsDrawCylinder (dBodyGetPosition(body[i]),
-    dBodyGetRotation(body[i]),0.10f,RADIUS);
+    dBodyGetRotation(body[i]),0.005f,RADIUS);
   dsSetColor (1,1,1);
   for (i=3; i<=4; i++) dsDrawCylinder (dBodyGetPosition(body[i]),
-    dBodyGetRotation(body[i]),0.10f,RADIUS);
+    dBodyGetRotation(body[i]),0.005f,RADIUS);
 
   dsSetColor (0,0,1);
   dsSetTexture(DS_NONE);
@@ -376,9 +422,11 @@ static void simLoop (int pause)
   dGeomBoxGetLengths(master, ss);
   dsDrawBox(dGeomGetPosition(master), dGeomGetRotation(master), ss);
 
+  usleep(1000000*STEP_SIZE);
+
 }
 
-// ƒƒCƒ“ŠÖ”
+// ãƒ¡ã‚¤ãƒ³é–¢æ•°
 
 int main (int argc, char **argv)
 {
@@ -466,7 +514,7 @@ int main (int argc, char **argv)
   dSpaceAdd (car_space,sphere[3]);
 
   // create master who is the target person
-  master = dCreateBox (space,0.2,0.2,HEIGHT_MASTER);
+  master = dCreateBox (space,0.1,0.1,HEIGHT_MASTER);
   dGeomSetPosition (master,DIST_FORWARD_MASTER,DIST_LEFTWARD_MASTER,HEIGHT_MASTER/2.0);
 
   // run simulation

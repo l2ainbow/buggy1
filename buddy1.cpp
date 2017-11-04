@@ -79,6 +79,10 @@ static dReal speed=0; // バディの直進量
 static dReal steer=0; // バディの旋回量
 static int step = 0; // シミュレーション開始からのステップ数
 static dReal motorSpeed[2] = {0.0, 0.0}; // 左右モータの回転速度
+static bool goForward = false;
+static bool goBack = false;
+static bool goLeft = false;
+static bool goRight = false;
 
 // シミュレーション開始前に呼ばれる関数
 // 衝突関係の計算
@@ -153,6 +157,26 @@ static void command (int cmd)
   case ' ':
     speed = 0;
     steer = 0;
+    goForward = false;
+    goBack = false;
+    goLeft = false;
+    goRight = false;
+    break;
+  case 'i':
+    goForward = true;
+    goBack = false;
+    break;
+  case 'k':
+    goForward = false;
+    goBack = true;
+    break;
+  case 'j':
+    goLeft = true;
+    goRight = false;
+    break;
+  case 'l':
+    goLeft = false;
+    goRight = true;
     break;
   case '1': {
       FILE *f = fopen ("state.dif","wt");
@@ -240,7 +264,6 @@ static void calculateMotorSpeed(dReal dist, dReal theta, dReal *motorSpeed){
   // (3)マスターが前方にいる場合、直進する
   // (4)それ以外の場合、カーブ走行する
   if (theta < - M_PI / 2){
-    // (2)マスターが後方にいる場合、旋回する
     rMotorSpeed = MAX_MOTOR_SPEED;
     lMotorSpeed = - MAX_MOTOR_SPEED;
   }
@@ -255,6 +278,21 @@ static void calculateMotorSpeed(dReal dist, dReal theta, dReal *motorSpeed){
 
 /** ここまで **/
 
+static void moveMaster(){
+    const dReal *pos = dGeomGetPosition(master);
+    dReal x = 0;
+    dReal y = 0;
+    if (goForward)
+        x += 0.01;
+    if (goBack)
+        x -= 0.01;
+    if (goLeft)
+        y += 0.01;
+    if (goRight)
+        y -= 0.01;
+    dGeomSetPosition(master, pos[0] + x, pos[1] + y, pos[2]);
+}
+
 // シミュレーションのループ実行
 
 static void simLoop (int pause)
@@ -263,6 +301,9 @@ static void simLoop (int pause)
 
   if (!pause) {
     step++;
+
+    // master
+    moveMaster();
 
     if (step % 100 == 0)
     {
@@ -289,12 +330,6 @@ static void simLoop (int pause)
     dJointSetHinge2Param (joint[2],dParamFMax2,1.0);
     dJointSetHinge2Param (joint[3],dParamFMax2,1.0);
 
-    if (step % 100 == 0){
-        dReal r = dJointGetHinge2Angle2Rate(joint[0]);
-        dReal l = dJointGetHinge2Angle2Rate(joint[1]);
-        printf("r=%f, l=%f\n", r, l);
-    }
-
     for (int i = 0; i< 4; i++){
         dJointSetHinge2Param (joint[i],dParamVel,0.0);
         dJointSetHinge2Param (joint[i],dParamFMax,0.1);
@@ -314,8 +349,11 @@ static void simLoop (int pause)
   dsSetTexture (DS_WOOD);
   dReal sides[3] = {LENGTH,WIDTH,HEIGHT};
   dsDrawBox (dBodyGetPosition(body[0]),dBodyGetRotation(body[0]),sides);
+  dsSetColor (1,0,0);
+  for (i=1; i<=2; i++) dsDrawCylinder (dBodyGetPosition(body[i]),
+    dBodyGetRotation(body[i]),0.02f,RADIUS);
   dsSetColor (1,1,1);
-  for (i=1; i<=4; i++) dsDrawCylinder (dBodyGetPosition(body[i]),
+  for (i=3; i<=4; i++) dsDrawCylinder (dBodyGetPosition(body[i]),
     dBodyGetRotation(body[i]),0.02f,RADIUS);
 
   dVector3 ss;

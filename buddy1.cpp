@@ -78,7 +78,7 @@ static dGeomID master; // master of buddy who is the target person
 static dReal speed=0; // バディの直進量
 static dReal steer=0; // バディの旋回量
 static int step = 0; // シミュレーション開始からのステップ数
-static dReal motorSpeed[2] = {0.0, 0.0};
+static dReal motorSpeed[2] = {0.0, 0.0}; // 左右モータの回転速度
 
 // シミュレーション開始前に呼ばれる関数
 // 衝突関係の計算
@@ -284,14 +284,20 @@ static void simLoop (int pause)
         dJointSetHinge2Param (joint[2],dParamVel2,motorSpeed[0]);
         dJointSetHinge2Param (joint[3],dParamVel2,motorSpeed[1]);
     }
-    dJointSetHinge2Param (joint[0],dParamFMax2,0.1);
-    dJointSetHinge2Param (joint[1],dParamFMax2,0.1);
-    dJointSetHinge2Param (joint[2],dParamFMax2,0.1);
-    dJointSetHinge2Param (joint[3],dParamFMax2,0.1);
+    dJointSetHinge2Param (joint[0],dParamFMax2,1.0);
+    dJointSetHinge2Param (joint[1],dParamFMax2,1.0);
+    dJointSetHinge2Param (joint[2],dParamFMax2,1.0);
+    dJointSetHinge2Param (joint[3],dParamFMax2,1.0);
+
+    if (step % 100 == 0){
+        dReal r = dJointGetHinge2Angle2Rate(joint[0]);
+        dReal l = dJointGetHinge2Angle2Rate(joint[1]);
+        printf("r=%f, l=%f\n", r, l);
+    }
 
     for (int i = 0; i< 4; i++){
         dJointSetHinge2Param (joint[i],dParamVel,0.0);
-        dJointSetHinge2Param (joint[i],dParamFMax,0.2);
+        dJointSetHinge2Param (joint[i],dParamFMax,0.1);
         dJointSetHinge2Param (joint[i],dParamLoStop,-0.75);
         dJointSetHinge2Param (joint[i],dParamHiStop,0.75);
         dJointSetHinge2Param (joint[i],dParamFudgeFactor,0.1);
@@ -339,7 +345,7 @@ int main (int argc, char **argv)
   world = dWorldCreate();
   space = dHashSpaceCreate (0);
   contactgroup = dJointGroupCreate (0);
-  dWorldSetGravity (world,0,0,-0.5);
+  dWorldSetGravity (world,0,0,-9.80665);
   ground = dCreatePlane (space,0,0,1,0);
 
   // chassis body

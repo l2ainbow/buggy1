@@ -52,11 +52,13 @@ this also shows you how to use geom groups.
 #define STEP_SIZE 0.01 // 1ステップの時間[s]
 #define CONTROL_CYCLE 0.5 // 制御周期 [s]
 
-#define LENGTH 0.1	   // バディの長さ [m]
-#define WIDTH 0.1	   // バディの幅 [m]
+#define LENGTH 0.077	   // バディの長さ [m]
+#define WIDTH 0.097	   // バディの幅 [m]
 #define HEIGHT 0.05	   // バディの高さ [m]
 #define RADIUS 0.025	   // タイヤの半径 [m]
 #define STARTZ 0.1	   // バディのスタート高さ [m]
+
+#define KL 1.0   //カーブ係数　[小さいほどより良く曲がる」
 
 #define CMASS 1		   // バディの重さ [kg]
 #define WMASS 0.2	   // タイヤの重さ [kg]
@@ -280,7 +282,7 @@ static void calculateMotorSpeed(dReal dist, dReal theta, dReal *motorSpeed){
   // (3)マスターが前方にいる場合、直進する
   // (4)それ以外の場合、カーブ走行する
 
-  if (dist < 0.5 ){
+  if (dist < 0.2 ){
     rMotorSpeed = 0;
     lMotorSpeed = 0;
   }
@@ -313,12 +315,12 @@ static void calculateMotorSpeed(dReal dist, dReal theta, dReal *motorSpeed){
     double Wl = Dl / (2 * M_PI * RADIUS);
 
     if(abs(Wr) < abs(Wl)){
-        double lower = Wr / Wl;
+        double lower = Wr / Wl * KL;
         rMotorSpeed = MAX_MOTOR_SPEED * lower;
         lMotorSpeed = MAX_MOTOR_SPEED;
     }
     else{
-        double lower = Wl / Wr;
+        double lower = Wl / Wr * KL;
         rMotorSpeed = MAX_MOTOR_SPEED;
         lMotorSpeed = MAX_MOTOR_SPEED * lower;
     }

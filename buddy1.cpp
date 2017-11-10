@@ -280,7 +280,7 @@ static void calculateMotorSpeed(dReal dist, dReal theta, dReal *motorSpeed){
   // (3)マスターが前方にいる場合、直進する
   // (4)それ以外の場合、カーブ走行する
 
-  if (dist < 1 ){
+  if (dist < 0.5 ){
     rMotorSpeed = 0;
     lMotorSpeed = 0;
   }
@@ -298,40 +298,31 @@ static void calculateMotorSpeed(dReal dist, dReal theta, dReal *motorSpeed){
 
   else if (theta < M_PI / 18.0 && theta > - M_PI / 18.0){
     rMotorSpeed = MAX_MOTOR_SPEED;
-    lMotorSpeed = - MAX_MOTOR_SPEED;
+    lMotorSpeed = MAX_MOTOR_SPEED;
   }
-
   else {
-    double a = (dist / (2 * sin(theta))) * (dist / (2 * sin(theta)));
-    double b = 0.25 * (LENGTH * LENGTH + WIDTH * WIDTH);
-    double c = dist / (2 * sin(theta));
-    double d = sqrt(LENGTH * LENGTH + WIDTH * WIDTH);
-    double e = WIDTH / sqrt(LENGTH * LENGTH + WIDTH * WIDTH);
-    double f = M_PI * RADIUS;
-    double wr = theta * sqrt(a + b - c * d * e) / f;
-    double wl = theta * sqrt(a + b + c * d * e) / f;
+    double ob = dist / sin(theta) / 2;//OBの長さ
+    double br = sqrt(LENGTH * LENGTH + WIDTH * WIDTH) / 2;//中心から右前のタイヤの長さ
+    double cos_obr = WIDTH / sqrt(LENGTH * LENGTH + WIDTH * WIDTH);//cos_OBR
+    double Or = sqrt(ob * ob + br * br - 2 * ob * br * cos_obr);
+    double Dr = 2 * Or * M_PI * (theta / M_PI);
+    double Wr = Dr / (2 * M_PI * RADIUS);
 
-    /*double wr = theta * sqrt((dist / (2 * sin(theta)) * (dist / (2 * sin(theta)))
-                            + (0.25 * LENGTH * LENGTH + 0.25 * WIDTH * WIDTH)
-                            – (dist /(2 * sin(theta)) * (sqrt(LENGTH * LENGTH + WIDTH * WIDTH))
-                            * (WIDTH / sqrt(LENGTH * LENGTH + WIDTH * WIDTH))) / (M_PI * RADIUS);*/
-    /*double wl = theta * sqrt((dist / (2 * sin(theta)) * (dist / (2 * sin(theta)))
-                            + (0.25 * LENGTH * LENGTH + 0.25 * WIDTH * WIDTH)
-                            + (dist / (2 * sin(theta)) * (sqrt(LENGTH * LENGTH + WIDTH * WIDTH))
-                            * (WIDTH / sqrt(LENGTH * LENGTH + WIDTH * WIDTH))) / (M_PI * RADIUS);*/
+    double ol = sqrt(ob * ob + br * br + 2 * ob * br * cos_obr);
+    double Dl = 2 * ol * M_PI * (theta / M_PI);
+    double Wl = Dl / (2 * M_PI * RADIUS);
 
-      if (wr < wl) {
-        double lower = wr / wl;
+    if(abs(Wr) < abs(Wl)){
+        double lower = Wr / Wl;
         rMotorSpeed = MAX_MOTOR_SPEED * lower;
         lMotorSpeed = MAX_MOTOR_SPEED;
-      }
-      else {
-        double lower = wl / wr;
+    }
+    else{
+        double lower = Wl / Wr;
         rMotorSpeed = MAX_MOTOR_SPEED;
         lMotorSpeed = MAX_MOTOR_SPEED * lower;
-      }
+    }
   }
-
   motorSpeed[0] = lMotorSpeed;
   motorSpeed[1] = rMotorSpeed;
 }
